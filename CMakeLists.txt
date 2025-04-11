@@ -154,6 +154,10 @@ add_executable(offb_node src/offb_node.cpp)
 add_dependencies(offb_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(offb_node ${catkin_LIBRARIES})
 
+add_executable(takeoff_and_land src/takeoff_and_land.cpp)
+add_dependencies(takeoff_and_land ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(takeoff_and_land ${catkin_LIBRARIES})
+
 #############
 ## Install ##
 #############
