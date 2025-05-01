@@ -6,6 +6,7 @@
 #include <mavros_msgs/State.h>
 #include <geometry_msgs/TwistStamped.h>
 #include <nav_msgs/Odometry.h>
+#include <nav_msgs/Path.h>
 #include <mavros_msgs/PositionTarget.h>
 
 #include <chrono>
@@ -27,14 +28,17 @@ class Node
             nh_priv_.getParam("takeoff_time", takeoff_time);
             nh_priv_.getParam("rotation_frequency", frequency);
             nh_priv_.getParam("rotation_amplitude", amplitude);
+            omega = frequency * 2 * M_PI;
             state_sub = nh_.subscribe<mavros_msgs::State>("mavros/state", 1, std::bind(&Node::state_cb, this, std::placeholders::_1));
             local_pos_pub = nh_.advertise<geometry_msgs::PoseStamped>("mavros/setpoint_position/local", 10);
             arming_client = nh_.serviceClient<mavros_msgs::CommandBool>("mavros/cmd/arming");
             set_mode_client = nh_.serviceClient<mavros_msgs::SetMode>("mavros/set_mode");
+            traj_pub_ = nh_.advertise<nav_msgs::Path>("/trajectory_publisher/trajectory", 10);
             setpoint_pub = nh_.advertise<mavros_msgs::PositionTarget>("mavros/setpoint_raw/local", 10);
             vel_pub = nh_.advertise<geometry_msgs::TwistStamped>("mavros/setpoint_velocity/cmd_vel", 10);
             odom_pub = nh_.subscribe<nav_msgs::Odometry>("mavros/local_position/odom", 1, std::bind(&Node::odom_cb, this, std::placeholders::_1));
             timer_ = nh_.createTimer(ros::Duration(0.01), std::bind(&Node::timer_cb, this));
+            traj_timer_ = nh_.createTimer(ros::Duration(0.5), std::bind(&Node::reference_trajectory, this));
             ros::Rate rate(20.0);
             while(ros::ok() && !current_state.connected && !odom_received){
                 std::cout << "waiting for odometry ... \n";
@@ -67,12 +71,14 @@ class Node
         void state_cb(const mavros_msgs::State::ConstPtr& msg);
         void odom_cb(const nav_msgs::Odometry::ConstPtr& msg);
         void lemniscate_trajectory(mavros_msgs::PositionTarget& msg, double t, double a, double w);
+        void reference_trajectory();
 
     private:
         // ROS
         ros::NodeHandle nh_;
         ros::NodeHandle nh_priv_;
         ros::Timer timer_;
+        ros::Timer traj_timer_;
         ros::Subscriber state_sub;
         ros::Subscriber odom_pub;
         ros::Publisher local_pos_pub;
@@ -81,18 +87,20 @@ class Node
         ros::ServiceClient set_mode_client;
         ros::Publisher vel_pub;
         ros::Publisher setpoint_pub;
+        ros::Publisher traj_pub_;
         ros::Time last_request;
-
         mavros_msgs::State current_state;
         geometry_msgs::PoseStamped start_pose;
         geometry_msgs::PoseStamped takeoff_pose;
         nav_msgs::Odometry odom;
+
         bool odom_received = false;
         bool takeoff_complete = false;
         double takeoff_time = 10.0;
         double takeoff_altitude = 3.0;
         double t_start = 0.0;
         double frequency = 0.1;
+        double omega;
         double amplitude = 1.0;
 };
 
@@ -139,6 +147,25 @@ void Node::lemniscate_trajectory(mavros_msgs::PositionTarget& msg, double t, dou
     msg.yaw = atan2(msg.velocity.y, msg.velocity.x);
 }
 
+void Node::reference_trajectory() {
+    nav_msgs::Path traj_msg;
+    auto time_now = ros::Time::now();
+    int num_steps = 200;
+    traj_msg.header.frame_id = "map";
+    traj_msg.header.stamp = time_now;
+    for (double i = 0.0; i < 2*M_PI; i+=2*M_PI/num_steps) {
+        double wt = omega * i;
+        geometry_msgs::PoseStamped p;
+        p.header.stamp = time_now;
+        p.header.frame_id = "map";
+        p.pose.position.x = amplitude * cos(i);
+        p.pose.position.y = amplitude * cos(i) * sin(i);
+        p.pose.position.z = takeoff_altitude;
+        traj_msg.poses.push_back(p);
+    }
+    traj_pub_.publish(traj_msg);
+}
+
 
 void Node::timer_cb()
 {
@@ -182,7 +209,7 @@ void Node::timer_cb()
         mavros_msgs::PositionTarget msg;
         msg.header.stamp = ros::Time::now();
         msg.coordinate_frame = 1;
-        lemniscate_trajectory(msg, t_now-t_start, amplitude, frequency);
+        lemniscate_trajectory(msg, t_now-t_start, amplitude, omega);
         setpoint_pub.publish(msg);
     }
 } 
