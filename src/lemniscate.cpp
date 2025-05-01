@@ -137,7 +137,7 @@ void Node::lemniscate_trajectory(mavros_msgs::PositionTarget& msg, double t, dou
     double wt = w*t;
     msg.position.x = takeoff_pose.pose.position.x + a * cos(wt);
     msg.position.y = takeoff_pose.pose.position.y + a * cos(wt) * sin(wt);
-    msg.position.z = takeoff_altitude;
+    msg.position.z = takeoff_pose.pose.position.z;
     msg.velocity.x = -aw * sin(wt);
     msg.velocity.y = aw * (pow(cos(wt), 2) - pow(sin(wt), 2));
     msg.velocity.z = 0.0;
@@ -161,7 +161,7 @@ void Node::reference_trajectory() {
             p.header.frame_id = "map";
             p.pose.position.x = takeoff_pose.pose.position.x + amplitude * cos(i);
             p.pose.position.y = takeoff_pose.pose.position.y + amplitude * cos(i) * sin(i);
-            p.pose.position.z = takeoff_altitude;
+            p.pose.position.z = takeoff_pose.pose.position.z;
             traj_msg.poses.push_back(p);
         }
         traj_pub_.publish(traj_msg);
