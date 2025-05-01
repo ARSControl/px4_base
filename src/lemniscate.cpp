@@ -135,8 +135,8 @@ void Node::odom_cb(const nav_msgs::Odometry::ConstPtr& msg){
 void Node::lemniscate_trajectory(mavros_msgs::PositionTarget& msg, double t, double a=1.0, double w=1.0) {
     double aw = a*w;
     double wt = w*t;
-    msg.position.x = a * cos(wt);
-    msg.position.y = a * cos(wt) * sin(wt);
+    msg.position.x = takeoff_pose.pose.position.x + a * cos(wt);
+    msg.position.y = takeoff_pose.pose.position.y + a * cos(wt) * sin(wt);
     msg.position.z = takeoff_altitude;
     msg.velocity.x = -aw * sin(wt);
     msg.velocity.y = aw * (pow(cos(wt), 2) - pow(sin(wt), 2));
@@ -148,22 +148,24 @@ void Node::lemniscate_trajectory(mavros_msgs::PositionTarget& msg, double t, dou
 }
 
 void Node::reference_trajectory() {
-    nav_msgs::Path traj_msg;
-    auto time_now = ros::Time::now();
-    int num_steps = 200;
-    traj_msg.header.frame_id = "map";
-    traj_msg.header.stamp = time_now;
-    for (double i = 0.0; i < 2*M_PI; i+=2*M_PI/num_steps) {
-        double wt = omega * i;
-        geometry_msgs::PoseStamped p;
-        p.header.stamp = time_now;
-        p.header.frame_id = "map";
-        p.pose.position.x = amplitude * cos(i);
-        p.pose.position.y = amplitude * cos(i) * sin(i);
-        p.pose.position.z = takeoff_altitude;
-        traj_msg.poses.push_back(p);
+    if (odom_received) {
+        nav_msgs::Path traj_msg;
+        auto time_now = ros::Time::now();
+        int num_steps = 200;
+        traj_msg.header.frame_id = "map";
+        traj_msg.header.stamp = time_now;
+        for (double i = 0.0; i < 2*M_PI; i+=2*M_PI/num_steps) {
+            double wt = omega * i;
+            geometry_msgs::PoseStamped p;
+            p.header.stamp = time_now;
+            p.header.frame_id = "map";
+            p.pose.position.x = takeoff_pose.pose.position.x + amplitude * cos(i);
+            p.pose.position.y = takeoff_pose.pose.position.y + amplitude * cos(i) * sin(i);
+            p.pose.position.z = takeoff_altitude;
+            traj_msg.poses.push_back(p);
+        }
+        traj_pub_.publish(traj_msg);
     }
-    traj_pub_.publish(traj_msg);
 }
 
 
@@ -209,7 +211,7 @@ void Node::timer_cb()
         mavros_msgs::PositionTarget msg;
         msg.header.stamp = ros::Time::now();
         msg.coordinate_frame = 1;
-        lemniscate_trajectory(msg, t_now-t_start, amplitude, omega);
+        lemniscate_trajectory(msg, t_now-t_start+takeoff_time, amplitude, omega);
         setpoint_pub.publish(msg);
     }
 } 
