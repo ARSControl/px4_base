@@ -54,7 +54,7 @@ class Node
             takeoff_pose.pose.position.x = start_pose.pose.position.x;
             takeoff_pose.pose.position.y = start_pose.pose.position.y;
             takeoff_pose.pose.position.z = start_pose.pose.position.z + takeoff_altitude; 
-
+	    std::cout << "Takeoff altitude: " << takeoff_altitude << std::endl;
             //send a few setpoints before starting
             for(int i = 100; ros::ok() && i > 0; --i){
                 local_pos_pub.publish(start_pose);
@@ -140,10 +140,10 @@ void Node::lemniscate_trajectory(mavros_msgs::PositionTarget& msg, double t, dou
     msg.position.z = takeoff_pose.pose.position.z;
     msg.velocity.x = -aw * sin(wt);
     msg.velocity.y = aw * (pow(cos(wt), 2) - pow(sin(wt), 2));
-    msg.velocity.z = 0.0;
+    msg.velocity.z = 0.8 * (takeoff_pose.pose.position.z - odom.pose.pose.position.z);
     msg.acceleration_or_force.x = -aw * cos(wt);
     msg.acceleration_or_force.y = -4 * aw * sin(wt) * cos(wt);
-    msg.acceleration_or_force.z = 0.0;
+    msg.acceleration_or_force.z = msg.velocity.z - 0.8 * odom.twist.twist.linear.x;
     msg.yaw = atan2(msg.velocity.y, msg.velocity.x);
 }
 
@@ -214,6 +214,8 @@ void Node::timer_cb()
         lemniscate_trajectory(msg, t_now-t_start+takeoff_time, amplitude, omega);
         setpoint_pub.publish(msg);
     }
+    std::cout << "z: " << odom.pose.pose.position.z << std::endl;
+    std::cout << "target z: " << takeoff_pose.pose.position.z << std::endl;
 } 
 
 

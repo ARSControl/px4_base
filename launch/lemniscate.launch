@@ -1,8 +1,14 @@
 <launch>
+    <arg name="record_bag" default="false" />
     <node pkg="px4_base" type="lemniscate" name="lemniscate_node" output="screen">
-            <param name="altitude" value="5.0"/>
-            <!-- <param name="takeoff_time" value="5.0"/> -->
-            <param name="rotation_frequency" value="0.05"/>
+            <param name="altitude" value="7.0"/>
+            <!-- <param name="takeoff_time" value="7.0"/> -->
+            <param name="rotation_frequency" value="0.1"/>
             <param name="rotation_amplitude" value="3.0"/>
     </node>
+
+    <node pkg="rosbag" type="record" name="rosbag_record"
+        if="$(arg record_bag)"
+        args="record -a -o $(find px4_base)/bags/" />
+
 </launch>
