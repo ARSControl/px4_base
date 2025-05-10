@@ -1,11 +1,17 @@
 <launch>
     <arg name="record_bag" default="false" />
+    <arg name="id" default="0" />
+    <arg name="name" default="uav$(arg id)" />
+
+
+    <group ns="$(arg name)">
     <node pkg="px4_base" type="lemniscate" name="lemniscate_node" output="screen">
             <param name="altitude" value="7.0"/>
             <!-- <param name="takeoff_time" value="7.0"/> -->
             <param name="rotation_frequency" value="0.1"/>
             <param name="rotation_amplitude" value="3.0"/>
     </node>
+    </group>
 
     <node pkg="rosbag" type="record" name="rosbag_record"
         if="$(arg record_bag)"

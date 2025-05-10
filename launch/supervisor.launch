@@ -1,0 +1,7 @@
+<launch>
+
+    <rosparam file="$(find px4_base)/config/config.yaml" command="load" />
+
+    <node name="supervisor"  pkg="px4_base" type="supervisor" output="screen" />
+
+</launch>

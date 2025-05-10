@@ -162,6 +162,10 @@ add_executable(lemniscate src/lemniscate.cpp)
 add_dependencies(lemniscate ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(lemniscate ${catkin_LIBRARIES})
 
+add_executable(supervisor src/supervisor.cpp)
+add_dependencies(supervisor ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(supervisor ${catkin_LIBRARIES})
+
 #############
 ## Install ##
 #############
