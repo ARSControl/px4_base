@@ -89,12 +89,17 @@ class Supervisor
             robots.resize(13, ROBOTS_NUM);       // x,y,z,rx,ry,rz,rw,vx,vy,vz,vrx,vry,vrz
             robots.setZero();
             robots.row(6).setOnes();            // consistent quaternion
-            robots_local.resize(3, ROBOTS_NUM);
+            starting_poses.resize(3, ROBOTS_NUM);       // x,y,z
+            starting_poses.setZero();
+            robots_local.resize(13, ROBOTS_NUM);
             robots_local.setZero();
+            robots_local.row(6).setOnes();            // consistent quaternion
             p_i.resize(7);
             p_i.setZero();
             p_i(6) = 1;               // consistent quaternion
             R_i.setZero();
+
+            got_starting_poses.resize(ROBOTS_NUM, false);
 
             
             /*transform.setOrigin(tf::Vector3(robots(0, ROBOT_ID), 
@@ -107,6 +112,8 @@ class Supervisor
                                         robots(6, ROBOT_ID)));
             br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "map", "uav_"+std::to_string(ROBOT_ID)));
             */
+
+            std::cout << "Init complete.\n";
 
         } 
 
@@ -134,9 +141,11 @@ class Supervisor
         
         // Robots poses
         Eigen::MatrixXd robots;
+        Eigen::MatrixXd starting_poses;
         Eigen::MatrixXd robots_local;
         Eigen::VectorXd p_i;                // UAV[i] pose
         Eigen::Matrix3d R_i;                // Rotation matrix 
+        std::vector<bool> got_starting_poses;
 
         // ROS
         ros::NodeHandle nh_;
@@ -147,7 +156,6 @@ class Supervisor
         std::vector<ros::Subscriber> odom_subs_;
         std::vector<ros::Publisher> odom_pubs_;
 
-        geometry_msgs::TransformStamped transformStamped;
         tf2_ros::TransformBroadcaster br;
 
 
@@ -173,6 +181,11 @@ void Supervisor::gps_callback(const sensor_msgs::NavSatFix::ConstPtr& msg, int i
 {
     robots.col(id).head(3) = global_to_local(msg->latitude, msg->longitude, msg->altitude,
                                             origin_lat, origin_lon, origin_alt);
+    if(!got_starting_poses[id]) {
+        starting_poses.col(id) = robots.col(id).head(3);
+        std::cout << "Starting position of robot " << IDS[id] << ": " << starting_poses.col(id).transpose() << std::endl;
+        got_starting_poses[id] = true;
+    }
     
 }
 
@@ -188,6 +201,20 @@ void Supervisor::odom_callback(const nav_msgs::Odometry::ConstPtr& msg, int id)
     robots(10, id) = msg->twist.twist.angular.x;
     robots(11, id) = msg->twist.twist.angular.y;
     robots(12, id) = msg->twist.twist.angular.z;
+
+    robots_local(0, id) = msg->pose.pose.position.x;
+    robots_local(1, id) = msg->pose.pose.position.y;
+    robots_local(2, id) = msg->pose.pose.position.z;
+    robots_local(3, id) = msg->pose.pose.orientation.x;
+    robots_local(4, id) = msg->pose.pose.orientation.y;
+    robots_local(5, id) = msg->pose.pose.orientation.z;
+    robots_local(6, id) = msg->pose.pose.orientation.w;
+    robots_local(7, id) = msg->twist.twist.linear.x;
+    robots_local(8, id) = msg->twist.twist.linear.y;
+    robots_local(9, id) = msg->twist.twist.linear.z;
+    robots_local(10, id) = msg->twist.twist.angular.x;
+    robots_local(11, id) = msg->twist.twist.angular.y;
+    robots_local(12, id) = msg->twist.twist.angular.z;
 }
 
 /*
@@ -257,12 +284,14 @@ void Supervisor::timer_callback()
         return;
     }
 
+
     for (int i = 0; i < ROBOTS_NUM; ++i) {
+
         // Publish local odom data
         nav_msgs::Odometry msg;
         msg.header.frame_id = "map";
         msg.header.stamp = ros::Time::now();
-        msg.child_frame_id = "uav" + std::to_string(IDS[i]);
+        msg.child_frame_id = "uav" + std::to_string(IDS[i])+"/base_link";
         msg.pose.pose.position.x = robots(0, i);   
         msg.pose.pose.position.y = robots(1, i);   
         msg.pose.pose.position.z = robots(2, i);
@@ -279,18 +308,34 @@ void Supervisor::timer_callback()
         odom_pubs_[i].publish(msg);
 
         // Publish TF
-        transformStamped.header.stamp = ros::Time::now();
-        transformStamped.header.frame_id = "map";
-        transformStamped.child_frame_id = "uav_"+std::to_string(IDS[i]);
-        transformStamped.transform.translation.x = robots(0, i);
-        transformStamped.transform.translation.y = robots(1, i);
-        transformStamped.transform.translation.z = robots(2, i);
-        transformStamped.transform.rotation.x = robots(3, i);
-        transformStamped.transform.rotation.y = robots(4, i);
-        transformStamped.transform.rotation.z = robots(5, i);
-        transformStamped.transform.rotation.w = robots(6, i);
+        
+        geometry_msgs::TransformStamped ts;
+        ts.header.stamp = ros::Time::now();
+        ts.header.frame_id = "map";
+        ts.child_frame_id = "uav" + std::to_string(IDS[i]) + "/odom";
+        ts.transform.translation.x = starting_poses(0, i);
+        ts.transform.translation.y = starting_poses(1, i);
+        ts.transform.translation.z = starting_poses(2, i);
+        ts.transform.rotation.x = 0.0;
+        ts.transform.rotation.y = 0.0;
+        ts.transform.rotation.z = 0.0;
+        ts.transform.rotation.w = 1.0;
+        br.sendTransform(ts);
 
-        br.sendTransform(transformStamped);
+
+
+        ts.header.stamp = ros::Time::now();
+        ts.header.frame_id = "uav" + std::to_string(IDS[i])+"/odom";
+        ts.child_frame_id = "uav" + std::to_string(IDS[i])+"/base_link";
+        ts.transform.translation.x = robots_local(0, i);
+        ts.transform.translation.y = robots_local(1, i);
+        ts.transform.translation.z = robots_local(2, i);
+        ts.transform.rotation.x = robots_local(3, i);
+        ts.transform.rotation.y = robots_local(4, i);
+        ts.transform.rotation.z = robots_local(5, i);
+        ts.transform.rotation.w = robots_local(6, i);
+
+        br.sendTransform(ts);
     }
     
     

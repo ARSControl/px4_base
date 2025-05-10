@@ -1,7 +1,7 @@
 <launch>
     <arg name="record_bag" default="false"/>
     
-    <node type="rviz" name="rviz" pkg="rviz" args="-d $(find px4_base)/rviz/config_file.rviz" />
+    <node type="rviz" name="rviz" pkg="rviz" args="-d $(find px4_base)/rviz/config_multi.rviz" />
     <node pkg="rosbag" type="record" name="rosbag_record"
         if="$(arg record_bag)" 
         args="record -a -o $(find px4_base)/bags/" />
