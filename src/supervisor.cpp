@@ -291,7 +291,7 @@ void Supervisor::timer_callback()
         nav_msgs::Odometry msg;
         msg.header.frame_id = "map";
         msg.header.stamp = ros::Time::now();
-        msg.child_frame_id = "uav" + std::to_string(IDS[i])+"/base_link";
+        // msg.child_frame_id = "uav" + std::to_string(IDS[i])+"/base_link";
         msg.pose.pose.position.x = robots(0, i);   
         msg.pose.pose.position.y = robots(1, i);   
         msg.pose.pose.position.z = robots(2, i);

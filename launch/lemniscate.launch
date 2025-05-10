@@ -10,6 +10,8 @@
             <!-- <param name="takeoff_time" value="7.0"/> -->
             <param name="rotation_frequency" value="0.1"/>
             <param name="rotation_amplitude" value="3.0"/>
+            <param name="id" value="$(arg id)" />
+            <!-- <remap from="mavros/local_position/odom" to="/supervisor/uav$(arg id)/odom"/> -->
     </node>
     </group>
 

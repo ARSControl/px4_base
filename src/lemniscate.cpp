@@ -8,6 +8,7 @@
 #include <nav_msgs/Odometry.h>
 #include <nav_msgs/Path.h>
 #include <mavros_msgs/PositionTarget.h>
+#include <tf/transform_listener.h>
 
 #include <chrono>
 #include <signal.h>
@@ -28,12 +29,14 @@ class Node
             nh_priv_.getParam("takeoff_time", takeoff_time);
             nh_priv_.getParam("rotation_frequency", frequency);
             nh_priv_.getParam("rotation_amplitude", amplitude);
+            nh_priv_.getParam("id", ID);
+            std::cout << "ID: " << ID << std::endl;
             omega = frequency * 2 * M_PI;
             state_sub = nh_.subscribe<mavros_msgs::State>("mavros/state", 1, std::bind(&Node::state_cb, this, std::placeholders::_1));
             local_pos_pub = nh_.advertise<geometry_msgs::PoseStamped>("mavros/setpoint_position/local", 10);
             arming_client = nh_.serviceClient<mavros_msgs::CommandBool>("mavros/cmd/arming");
             set_mode_client = nh_.serviceClient<mavros_msgs::SetMode>("mavros/set_mode");
-            traj_pub_ = nh_.advertise<nav_msgs::Path>("/trajectory_publisher/trajectory", 10);
+            traj_pub_ = nh_.advertise<nav_msgs::Path>("trajectory_publisher/trajectory", 10);
             setpoint_pub = nh_.advertise<mavros_msgs::PositionTarget>("mavros/setpoint_raw/local", 10);
             vel_pub = nh_.advertise<geometry_msgs::TwistStamped>("mavros/setpoint_velocity/cmd_vel", 10);
             odom_pub = nh_.subscribe<nav_msgs::Odometry>("mavros/local_position/odom", 1, std::bind(&Node::odom_cb, this, std::placeholders::_1));
@@ -45,6 +48,23 @@ class Node
                 ros::spinOnce();
                 rate.sleep();
             }
+            
+            tf::StampedTransform transform;
+            while(!offset_received) {
+                try {
+                    listener.lookupTransform("map", "uav"+std::to_string(ID)+"/odom", ros::Time(0), transform);
+                    offset_x = transform.getOrigin().x();
+                    offset_y = transform.getOrigin().y();
+                    std::cout << "offset: " << offset_x << ", " << offset_y << std::endl;
+                    offset_received = true;
+                }
+                catch (tf::TransformException &ex) {
+                    ROS_WARN("%s", ex.what());
+                    ros::Duration(1.0).sleep();
+                    continue;
+                }
+            }
+
             std::cout << "Odometry received!\n";
             start_pose.pose.position.x = odom.pose.pose.position.x;
             start_pose.pose.position.y = odom.pose.pose.position.y;
@@ -93,15 +113,20 @@ class Node
         geometry_msgs::PoseStamped start_pose;
         geometry_msgs::PoseStamped takeoff_pose;
         nav_msgs::Odometry odom;
+        tf::TransformListener listener;
 
         bool odom_received = false;
+        bool offset_received = false;
         bool takeoff_complete = false;
+        int ID = 0;
         double takeoff_time = 10.0;
         double takeoff_altitude = 3.0;
         double t_start = 0.0;
         double frequency = 0.1;
         double omega;
         double amplitude = 1.0;
+        double offset_x = 0.0;              // difference between common map origin and local origin
+        double offset_y = 0.0;
 };
 
 void Node::stop()
@@ -135,8 +160,8 @@ void Node::odom_cb(const nav_msgs::Odometry::ConstPtr& msg){
 void Node::lemniscate_trajectory(mavros_msgs::PositionTarget& msg, double t, double a=1.0, double w=1.0) {
     double aw = a*w;
     double wt = w*t;
-    msg.position.x = takeoff_pose.pose.position.x + a * cos(wt);
-    msg.position.y = takeoff_pose.pose.position.y + a * cos(wt) * sin(wt);
+    msg.position.x = takeoff_pose.pose.position.x - offset_x + a * cos(wt);
+    msg.position.y = takeoff_pose.pose.position.y - offset_y + a * cos(wt) * sin(wt);
     msg.position.z = takeoff_pose.pose.position.z;
     msg.velocity.x = -aw * sin(wt);
     msg.velocity.y = aw * (pow(cos(wt), 2) - pow(sin(wt), 2));
@@ -152,15 +177,15 @@ void Node::reference_trajectory() {
         nav_msgs::Path traj_msg;
         auto time_now = ros::Time::now();
         int num_steps = 200;
-        traj_msg.header.frame_id = "map";
+        traj_msg.header.frame_id = "uav"+std::to_string(ID)+"/odom";
         traj_msg.header.stamp = time_now;
         for (double i = 0.0; i < 2*M_PI; i+=2*M_PI/num_steps) {
             double wt = omega * i;
             geometry_msgs::PoseStamped p;
             p.header.stamp = time_now;
-            p.header.frame_id = "map";
-            p.pose.position.x = takeoff_pose.pose.position.x + amplitude * cos(i);
-            p.pose.position.y = takeoff_pose.pose.position.y + amplitude * cos(i) * sin(i);
+            p.header.frame_id = "uav"+std::to_string(ID)+"/odom";
+            p.pose.position.x = takeoff_pose.pose.position.x - offset_x + amplitude * cos(i);
+            p.pose.position.y = takeoff_pose.pose.position.y - offset_y + amplitude * cos(i) * sin(i);
             p.pose.position.z = takeoff_pose.pose.position.z;
             traj_msg.poses.push_back(p);
         }
@@ -174,6 +199,7 @@ void Node::timer_cb()
     if(!odom_received){
         return;
     }
+
     mavros_msgs::SetMode offb_set_mode;
     offb_set_mode.request.custom_mode = "OFFBOARD";
 
@@ -214,8 +240,8 @@ void Node::timer_cb()
         lemniscate_trajectory(msg, t_now-t_start+takeoff_time, amplitude, omega);
         setpoint_pub.publish(msg);
     }
-    std::cout << "z: " << odom.pose.pose.position.z << std::endl;
-    std::cout << "target z: " << takeoff_pose.pose.position.z << std::endl;
+    // std::cout << "z: " << odom.pose.pose.position.z << std::endl;
+    // std::cout << "target z: " << takeoff_pose.pose.position.z << std::endl;
 } 
 
 
@@ -226,7 +252,7 @@ void nodeobj_wrapper_function(int){
 
 int main(int argc, char **argv)
 {
-    ros::init(argc, argv, "takeoff_node", ros::init_options::NoSigintHandler);
+    ros::init(argc, argv, "lemniscate_node", ros::init_options::NoSigintHandler);
     signal(SIGINT, nodeobj_wrapper_function);
 
     //Controller node_controller;
