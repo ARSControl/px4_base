@@ -1,0 +1,24 @@
+<launch>
+    <arg name="record_bag" default="false" />
+    <arg name="id" default="0" />
+    <arg name="name" default="uav$(arg id)" />
+    <arg name="phase" default="0.0" />
+
+
+    <group ns="$(arg name)">
+    <node pkg="px4_base" type="circle" name="circle_node" output="screen">
+            <param name="altitude" value="7.0"/>
+            <!-- <param name="takeoff_time" value="7.0"/> -->
+            <param name="rotation_frequency" value="0.1"/>
+            <param name="radius" value="5.0"/>
+            <param name="phase" value="$(arg phase)"/>
+            <param name="id" value="$(arg id)" />
+            <!-- <remap from="mavros/local_position/odom" to="/supervisor/uav$(arg id)/odom"/> -->
+    </node>
+    </group>
+
+    <node pkg="rosbag" type="record" name="rosbag_record"
+        if="$(arg record_bag)"
+        args="record -a -o $(find px4_base)/bags/" />
+
+</launch>
