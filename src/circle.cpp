@@ -10,6 +10,9 @@
 #include <mavros_msgs/PositionTarget.h>
 #include <tf/transform_listener.h>
 
+#include <cstdlib>
+#include <string>
+#include <sstream>
 #include <chrono>
 #include <signal.h>
 
@@ -31,7 +34,14 @@ class Node
             nh_priv_.getParam("radius", radius);
             nh_priv_.getParam("phase", phi);
             nh_priv_.getParam("id", ID);
-            std::cout << "ID: " << ID << std::endl;
+            const char* env_id = std::getenv("UAV_ID");
+	    if(env_id != nullptr) {
+		    std::string id_value(env_id);
+		    std::istringstream iss(id_value);
+		    iss >> ID;
+		    std::cout << "Found env variable UAV_ID=" << ID << std::endl;
+	    }
+	    std::cout << "ID: " << ID << std::endl;
             omega = frequency * 2 * M_PI;
             state_sub = nh_.subscribe<mavros_msgs::State>("mavros/state", 1, std::bind(&Node::state_cb, this, std::placeholders::_1));
             local_pos_pub = nh_.advertise<geometry_msgs::PoseStamped>("mavros/setpoint_position/local", 10);
