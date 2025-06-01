@@ -1,0 +1,8 @@
+<launch>
+<group ns="uav1">
+    <include file="$(find mavros)/launch/px4.launch">
+        <arg name="tgt_system" value="1"/>
+        <arg name="fcu_url" value="tcp://:5760"/>
+    </include>
+</group>
+</launch>

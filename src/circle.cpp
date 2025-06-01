@@ -59,14 +59,20 @@ class Node
                 ros::spinOnce();
                 rate.sleep();
             }
-            
+	    std::cout << "Wating 3 secs... \n";
+	    for (int i = 0; i < 10; i++) {
+		    ros::spinOnce();
+		    rate.sleep();
+	    }
+
             tf::StampedTransform transform;
             while(!offset_received) {
                 try {
                     listener.lookupTransform("map", "uav"+std::to_string(ID)+"/odom", ros::Time(0), transform);
                     offset_x = transform.getOrigin().x();
                     offset_y = transform.getOrigin().y();
-                    std::cout << "offset: " << offset_x << ", " << offset_y << std::endl;
+                    offset_z = transform.getOrigin().z();
+		    std::cout << "offset: " << offset_x << ", " << offset_y <<", " << offset_z << std::endl;
                     offset_received = true;
                 }
                 catch (tf::TransformException &ex) {
@@ -139,6 +145,7 @@ class Node
         double radius = 3.0;
         double offset_x = 0.0;              // difference between common map origin and local origin
         double offset_y = 0.0;
+	double offset_z = 0.0;
 };
 
 void Node::stop()
@@ -164,7 +171,7 @@ void Node::state_cb(const mavros_msgs::State::ConstPtr& msg){
 
 void Node::odom_cb(const nav_msgs::Odometry::ConstPtr& msg){
 	odom = *msg;
-	if (odom.pose.pose.position.z != 0.0){
+	if (odom.pose.pose.position.x != 0.0 && odom.pose.pose.position.y != 0.0 && odom.pose.pose.position.z != 0.0){
 		odom_received = true;
 	}
 }
@@ -173,13 +180,13 @@ void Node::circle_trajectory(mavros_msgs::PositionTarget& msg, double t, double 
     double wt = w*t;
     msg.position.x = takeoff_pose.pose.position.x - offset_x + r * cos(wt + phi);
     msg.position.y = takeoff_pose.pose.position.y - offset_y + r * sin(wt + phi);
-    msg.position.z = takeoff_pose.pose.position.z;
+    msg.position.z = takeoff_pose.pose.position.z - offset_z;
     msg.velocity.x = -r*w * sin(wt + phi);
     msg.velocity.y = r*w * cos(wt + phi);
     msg.velocity.z = 0.8 * (takeoff_pose.pose.position.z - odom.pose.pose.position.z);
     msg.acceleration_or_force.x = -r*pow(w, 2) * cos(wt + phi);
     msg.acceleration_or_force.y = -r*pow(w, 2) * sin(wt + phi);
-    msg.acceleration_or_force.z = msg.velocity.z - 0.8 * odom.twist.twist.linear.x;
+    msg.acceleration_or_force.z = msg.velocity.z - 0.8 * odom.twist.twist.linear.z;
     msg.yaw = atan2(msg.velocity.y, msg.velocity.x);
 }
 
@@ -188,8 +195,9 @@ void Node::reference_trajectory() {
         nav_msgs::Path traj_msg;
         auto time_now = ros::Time::now();
         int num_steps = 200;
-        traj_msg.header.frame_id = "uav"+std::to_string(ID)+"/odom";
-        traj_msg.header.stamp = time_now;
+        //traj_msg.header.frame_id = "uav"+std::to_string(ID)+"/odom";
+        traj_msg.header.frame_id = "map";
+	traj_msg.header.stamp = time_now;
         for (double i = 0.0; i < 2*M_PI; i+=2*M_PI/num_steps) {
             double wt = omega * i;
             geometry_msgs::PoseStamped p;
@@ -197,7 +205,7 @@ void Node::reference_trajectory() {
             p.header.frame_id = "uav"+std::to_string(ID)+"/odom";
             p.pose.position.x = takeoff_pose.pose.position.x - offset_x + radius * cos(i);
             p.pose.position.y = takeoff_pose.pose.position.y - offset_y + radius * sin(i);
-            p.pose.position.z = takeoff_pose.pose.position.z;
+            p.pose.position.z = takeoff_pose.pose.position.z - offset_z;
             traj_msg.poses.push_back(p);
         }
         traj_pub_.publish(traj_msg);
@@ -240,13 +248,16 @@ void Node::timer_cb()
     // Wait 10 seconds after takeoff request
     if (ros::Time::now() - last_request < ros::Duration(takeoff_time))
     {
-        // ROS_INFO("Taking off.");
+        //ROS_INFO("Taking off.");
+	takeoff_pose.header.frame_id = "map";
+	takeoff_pose.header.stamp = ros::Time::now();
         local_pos_pub.publish(takeoff_pose);
         t_start = ros::Time::now().toSec();
     } else {
         double t_now = ros::Time::now().toSec();
         mavros_msgs::PositionTarget msg;
-        msg.header.stamp = ros::Time::now();
+        msg.header.frame_id = "map";
+	msg.header.stamp = ros::Time::now();
         msg.coordinate_frame = 1;
         circle_trajectory(msg, t_now-t_start+takeoff_time, radius, omega);
         setpoint_pub.publish(msg);
