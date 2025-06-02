@@ -74,11 +74,12 @@ class Supervisor
             odom_pubs_.resize(ROBOTS_NUM);
 
             // Origin is starting position of UAV0 for every UAV
-            home_sub_ = nh_.subscribe<geographic_msgs::GeoPointStamped>("uav"+std::to_string(IDS[0])+"/mavros/global_position/gp_origin", 1, std::bind(&Supervisor::home_callback, this, std::placeholders::_1));
+            // home_sub_ = nh_.subscribe<geographic_msgs::GeoPointStamped>("/uav"+std::to_string(IDS[0])+"/mavros/global_position/gp_origin", 1, std::bind(&Supervisor::home_callback, this, std::placeholders::_1));
+            home_sub_ = nh_.subscribe<sensor_msgs::NavSatFix>("/uav"+std::to_string(IDS[0])+"/mavros/global_position/global", 1, std::bind(&Supervisor::home_callback, this, std::placeholders::_1));
             for (int i = 0; i < ROBOTS_NUM; ++i)
             {
-                gps_subs_[i] = nh_.subscribe<sensor_msgs::NavSatFix>("uav"+std::to_string(IDS[i])+"/mavros/global_position/global", 1, std::bind(&Supervisor::gps_callback, this, std::placeholders::_1, i));
-                odom_subs_[i] = nh_.subscribe<nav_msgs::Odometry>("uav"+std::to_string(IDS[i])+"/mavros/local_position/odom", 1, std::bind(&Supervisor::odom_callback, this, std::placeholders::_1, i));
+                gps_subs_[i] = nh_.subscribe<sensor_msgs::NavSatFix>("/uav"+std::to_string(IDS[i])+"/mavros/global_position/global", 1, std::bind(&Supervisor::gps_callback, this, std::placeholders::_1, i));
+                odom_subs_[i] = nh_.subscribe<nav_msgs::Odometry>("/uav"+std::to_string(IDS[i])+"/mavros/local_position/odom", 1, std::bind(&Supervisor::odom_callback, this, std::placeholders::_1, i));
                 odom_pubs_[i] = nh_.advertise<nav_msgs::Odometry>("/supervisor/uav"+std::to_string(IDS[i])+"/odom", 10);
             }
             timer_ = nh_.createTimer(ros::Duration(0.01), std::bind(&Supervisor::timer_callback, this));
@@ -125,7 +126,7 @@ class Supervisor
         void stop();
         void timer_callback();
         void emulate_vision();
-        void home_callback(const geographic_msgs::GeoPointStamped::ConstPtr& msg);
+        void home_callback(const sensor_msgs::NavSatFix::ConstPtr& msg);
         void gps_callback(const sensor_msgs::NavSatFix::ConstPtr& msg, int id);
         void odom_callback(const nav_msgs::Odometry::ConstPtr& msg, int id);
 
@@ -167,12 +168,22 @@ void Supervisor::stop()
     ros::shutdown();
 }
 
-void Supervisor::home_callback(const geographic_msgs::GeoPointStamped::ConstPtr& msg)
+// void Supervisor::home_callback(const geographic_msgs::GeoPointStamped::ConstPtr& msg)
+// {
+//     origin_lat = msg->position.latitude;
+//     origin_lon = msg->position.longitude;
+//     origin_alt = msg->position.altitude;
+//     got_home = true;
+// }
+
+void Supervisor::home_callback(const sensor_msgs::NavSatFix::ConstPtr& msg)
 {
-    origin_lat = msg->position.latitude;
-    origin_lon = msg->position.longitude;
-    origin_alt = msg->position.altitude;
-    got_home = true;
+    if (!got_home) {
+        origin_lat = msg->latitude;
+        origin_lon = msg->longitude;
+        origin_alt = msg->altitude;
+        got_home = true;
+    }
 }
 
 
