@@ -1,13 +1,14 @@
 <launch>
-    <arg name="record_bag" default="true" />
+    <arg name="record_bag" default="false" />
     <arg name="id" default="1" />
     <arg name="name" default="uav$(arg id)" />
     <arg name="phase" default="0.0" />
+    <arg name="altitude" default="7.0" />
 
 
     <group ns="$(arg name)">
     <node pkg="px4_base" type="circle" name="circle_node" output="screen">
-            <param name="altitude" value="10.0"/>
+            <param name="altitude" value="$(arg altitude)"/>
             <param name="takeoff_time" value="10.0"/>
             <param name="rotation_frequency" value="0.1"/>
             <param name="radius" value="2.0"/>
