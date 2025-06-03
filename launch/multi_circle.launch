@@ -1,21 +1,30 @@
 <launch>
 
+    <arg name="xc" default="2.0" />
+    <arg name="yc" default="1.0" />
+
     <include file="$(find px4_base)/launch/circle.launch">
         <arg name="id" value="0"/>
         <arg name="phase" value="0.0"/>
         <arg name="altitude" value="7.0"/>
+        <arg name="xc" value="$(arg xc)"/>
+        <arg name="yc" value="$(arg yc)"/>
     </include>
 
     <include file="$(find px4_base)/launch/circle.launch">
         <arg name="id" value="1"/>
         <arg name="phase" value="2.09"/>
         <arg name="altitude" value="10.0"/>
+        <arg name="xc" value="$(arg xc)"/>
+        <arg name="yc" value="$(arg yc)"/>
     </include>
 
     <!-- <include file="$(find px4_base)/launch/circle.launch">
         <arg name="id" value="2"/>
         <arg name="phase" value="-2.09"/>
         <arg name="altitude" value="12.0"/>
+        <arg name="xc" value="$(arg xc)"/>
+        <arg name="yc" value="$(arg yc)"/>
     </include> -->
 
 </launch>

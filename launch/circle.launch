@@ -4,7 +4,8 @@
     <arg name="name" default="uav$(arg id)" />
     <arg name="phase" default="0.0" />
     <arg name="altitude" default="7.0" />
-
+    <arg name="xc" default="0.0" />
+    <arg name="yc" default="0.0" />
 
     <group ns="$(arg name)">
     <node pkg="px4_base" type="circle" name="circle_node" output="screen">
@@ -14,6 +15,8 @@
             <param name="radius" value="2.0"/>
             <param name="phase" value="$(arg phase)"/>
             <param name="id" value="$(arg id)" />
+            <param name="center_x" value="$(arg xc)" />
+            <param name="center_y" value="$(arg yc)" />
             <remap from="mavros/local_position/odom" to="/supervisor/uav$(arg id)/odom"/>
     </node>
     </group>

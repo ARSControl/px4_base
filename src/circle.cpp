@@ -50,14 +50,17 @@ class Node
             nh_priv_.getParam("radius", radius);
             nh_priv_.getParam("phase", phi);
             nh_priv_.getParam("id", ID);
+            nh_priv_.getParam("center_x", xc);
+            nh_priv_.getParam("center_y", yc);
             const char* env_id = std::getenv("UAV_ID");
-	    if(env_id != nullptr) {
-		    std::string id_value(env_id);
-		    std::istringstream iss(id_value);
-		    iss >> ID;
-		    std::cout << "Found env variable UAV_ID=" << ID << std::endl;
-	    }
-	    std::cout << "ID: " << ID << std::endl;
+            if(env_id != nullptr) {
+                std::string id_value(env_id);
+                std::istringstream iss(id_value);
+                iss >> ID;
+                std::cout << "Found env variable UAV_ID=" << ID << std::endl;
+            }
+	        std::cout << "ID: " << ID << std::endl;
+            std::cout << "Trajectory: circle centered in (" << xc << ", " << yc << ") with r = " << radius << std::endl;
             omega = frequency * 2 * M_PI;
             state_sub = nh_.subscribe<mavros_msgs::State>("mavros/state", 1, std::bind(&Node::state_cb, this, std::placeholders::_1));
             local_pos_pub = nh_.advertise<geometry_msgs::PoseStamped>("mavros/setpoint_position/local", 10);
@@ -176,9 +179,11 @@ class Node
         double omega;
         double phi = 0.0;
         double radius = 3.0;
+        double xc = 0.0;                    // center coordinates (in map frame)
+        double yc = 0.0;
         double offset_x = 0.0;              // difference between common map origin and local origin
         double offset_y = 0.0;
-	double offset_z = 0.0;
+	    double offset_z = 0.0;
 };
 
 void Node::stop()
@@ -225,8 +230,8 @@ void Node::circle_trajectory(mavros_msgs::PositionTarget& msg, double t, double 
 
 void Node::global_circle_trajectory(mavros_msgs::PositionTarget& msg, double t, double r=3.0, double w=1.0) {
     double wt = w*t;
-    msg.position.x = r * cos(wt + phi);
-    msg.position.y = r * sin(wt + phi);
+    msg.position.x = xc + r * cos(wt + phi);
+    msg.position.y = yc + r * sin(wt + phi);
     msg.position.z = takeoff_altitude;
     msg.velocity.x = -r*w * sin(wt + phi);
     msg.velocity.y = r*w * cos(wt + phi);
@@ -250,8 +255,8 @@ void Node::reference_trajectory() {
             geometry_msgs::PoseStamped p;
             p.header.stamp = time_now;
             p.header.frame_id = "map";
-            p.pose.position.x = radius * cos(i);
-            p.pose.position.y = radius * sin(i);
+            p.pose.position.x = xc + radius * cos(i);
+            p.pose.position.y = yc + radius * sin(i);
             p.pose.position.z = takeoff_altitude;
 
             traj_msg.poses.push_back(p);
@@ -302,14 +307,6 @@ void Node::timer_cb()
         local_pos_pub.publish(takeoff_pose);
         t_start = ros::Time::now().toSec();
     } else {
-        // double t_now = ros::Time::now().toSec();
-        // mavros_msgs::PositionTarget msg;
-        // msg.header.frame_id = "uav"+std::to_string(ID)+"/local_origin";
-	    // msg.header.stamp = ros::Time::now();
-        // msg.coordinate_frame = 1;
-        // circle_trajectory(msg, t_now-t_start+takeoff_time, radius, omega);
-        // mavros_msgs::PositionTarget local_msg;
-        // setpoint_pub.publish(msg);
         double t_now = ros::Time::now().toSec();
         mavros_msgs::PositionTarget global_msg;
         global_msg.header.frame_id = "map";
