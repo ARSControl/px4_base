@@ -12,10 +12,10 @@
         <arg name="altitude" value="10.0"/>
     </include>
 
-    <include file="$(find px4_base)/launch/circle.launch">
+    <!-- <include file="$(find px4_base)/launch/circle.launch">
         <arg name="id" value="2"/>
         <arg name="phase" value="-2.09"/>
         <arg name="altitude" value="12.0"/>
-    </include>
+    </include> -->
 
 </launch>
