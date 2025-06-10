@@ -125,7 +125,7 @@ class Node
             takeoff_pose.pose.position.x = start_pose.pose.position.x;
             takeoff_pose.pose.position.y = start_pose.pose.position.y;
             takeoff_pose.pose.position.z = start_pose.pose.position.z + takeoff_altitude; 
-	        std::cout << "Takeoff altitude: " << takeoff_altitude << std::endl;
+	        std::cout << "Takeoff altitude: " << takeoff_pose.pose.position.z << std::endl;
             //send a few setpoints before starting
             for(int i = 100; ros::ok() && i > 0; --i){
                 local_pos_pub.publish(start_pose);
@@ -232,10 +232,11 @@ void Node::global_circle_trajectory(mavros_msgs::PositionTarget& msg, double t, 
     double wt = w*t;
     msg.position.x = xc + r * cos(wt + phi);
     msg.position.y = yc + r * sin(wt + phi);
-    msg.position.z = takeoff_altitude;
+    //msg.position.z = takeoff_altitude;
+    msg.position.z = takeoff_pose.pose.position.z;
     msg.velocity.x = -r*w * sin(wt + phi);
     msg.velocity.y = r*w * cos(wt + phi);
-    msg.velocity.z = 0.8 * (takeoff_altitude - odom.pose.pose.position.z);
+    msg.velocity.z = 0.8 * (takeoff_pose.pose.position.z - odom.pose.pose.position.z);
     msg.acceleration_or_force.x = -r*pow(w, 2) * cos(wt + phi);
     msg.acceleration_or_force.y = -r*pow(w, 2) * sin(wt + phi);
     msg.acceleration_or_force.z = msg.velocity.z - 0.8 * odom.twist.twist.linear.z;
@@ -257,7 +258,7 @@ void Node::reference_trajectory() {
             p.header.frame_id = "map";
             p.pose.position.x = xc + radius * cos(i);
             p.pose.position.y = yc + radius * sin(i);
-            p.pose.position.z = takeoff_altitude;
+            p.pose.position.z = takeoff_pose.pose.position.z;
 
             traj_msg.poses.push_back(p);
         }
