@@ -70,6 +70,7 @@ class Node
             setpoint_pub = nh_.advertise<mavros_msgs::PositionTarget>("mavros/setpoint_raw/local", 10);
             vel_pub = nh_.advertise<geometry_msgs::TwistStamped>("mavros/setpoint_velocity/cmd_vel", 10);
             odom_pub = nh_.subscribe<nav_msgs::Odometry>("mavros/local_position/odom", 1, std::bind(&Node::odom_cb, this, std::placeholders::_1));
+            reference_pub_ = nh_.advertise<geometry_msgs::PoseStamped>("reference", 10);
             timer_ = nh_.createTimer(ros::Duration(0.005), std::bind(&Node::timer_cb, this));
             traj_timer_ = nh_.createTimer(ros::Duration(0.5), std::bind(&Node::reference_trajectory, this));
             ros::Rate rate(20.0);
@@ -160,10 +161,12 @@ class Node
         ros::Publisher vel_pub;
         ros::Publisher setpoint_pub;
         ros::Publisher traj_pub_;
+        ros::Publisher reference_pub_;
         ros::Time last_request;
         mavros_msgs::State current_state;
         geometry_msgs::PoseStamped start_pose;
         geometry_msgs::PoseStamped takeoff_pose;
+        geometry_msgs::PoseStamped reference_pose;
         nav_msgs::Odometry odom;
         tf::TransformListener listener;
     
@@ -306,6 +309,10 @@ void Node::timer_cb()
         takeoff_pose.header.frame_id = "map";
         takeoff_pose.header.stamp = ros::Time::now();
         local_pos_pub.publish(takeoff_pose);
+        reference_pose.header.frame_id = "uav"+std::to_string(ID)+"/local_origin";
+        reference_pose.header.stamp = ros::Time::now();
+        reference_pose.pose = takeoff_pose.pose;
+        reference_pub_.publish(reference_pose);
         t_start = ros::Time::now().toSec();
     } else {
         double t_now = ros::Time::now().toSec();
@@ -329,6 +336,15 @@ void Node::timer_cb()
             mavros_msgs::PositionTarget local_msg;
             transformMsg(global_msg, local_msg, transformStamped);
             setpoint_pub.publish(local_msg);
+            reference_pose.header.frame_id = "uav"+std::to_string(ID)+"/local_origin";
+            reference_pose.header.stamp = ros::Time::now();
+            reference_pose.pose.position.x = local_msg.position.x;
+            reference_pose.pose.position.y = local_msg.position.y;
+            reference_pose.pose.position.z = local_msg.position.z;
+            reference_pose.pose.orientation = tf2::toMsg(tf2::Quaternion(
+                0.0, 0.0, local_msg.yaw
+            ));
+            reference_pub_.publish(reference_pose);
         } catch (tf2::TransformException &ex) {
             ROS_WARN("Transform lookup failed: %s", ex.what());
         }

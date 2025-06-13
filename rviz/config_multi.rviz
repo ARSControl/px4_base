@@ -198,10 +198,6 @@ Visualization Manager:
           Value: true
         uav1/local_origin:
           Value: true
-        uav2/base_link:
-          Value: true
-        uav2/local_origin:
-          Value: true
       Marker Alpha: 1
       Marker Scale: 1
       Name: TF
@@ -221,13 +217,26 @@ Visualization Manager:
           uav1/local_origin:
             uav1/base_link:
               {}
-          uav2/local_origin:
-            uav2/base_link:
-              {}
         odom:
           odom_ned:
             {}
       Update Interval: 0
+      Value: true
+    - Alpha: 1
+      Axes Length: 0.5
+      Axes Radius: 0.10000000149011612
+      Class: rviz/Pose
+      Color: 255; 25; 0
+      Enabled: true
+      Head Length: 0.30000001192092896
+      Head Radius: 0.10000000149011612
+      Name: Pose
+      Queue Size: 10
+      Shaft Length: 1
+      Shaft Radius: 0.05000000074505806
+      Shape: Arrow
+      Topic: /uav1/reference
+      Unreliable: false
       Value: true
   Enabled: true
   Global Options:
@@ -257,7 +266,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 6.259041786193848
+      Distance: 20.09269142150879
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -265,17 +274,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: -0.24116693437099457
-        Y: 0.6913947463035583
-        Z: 0.6442084312438965
+        X: -3.06592059135437
+        Y: 3.9404549598693848
+        Z: 2.760319948196411
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.88539719581604
+      Pitch: 0.46039751172065735
       Target Frame: <Fixed Frame>
-      Yaw: 4.46857213973999
+      Yaw: 4.793576717376709
     Saved: ~
 Window Geometry:
   Displays:
@@ -293,5 +302,5 @@ Window Geometry:
   Views:
     collapsed: false
   Width: 1854
-  X: 66
-  Y: 0
+  X: 1986
+  Y: 32

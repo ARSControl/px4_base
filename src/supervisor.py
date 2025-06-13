@@ -64,11 +64,13 @@ class Supervisor():
                 self.starting_positions[i, 0] = x
                 self.starting_positions[i, 1] = y
                 self.starting_positions[i, 2] = z
+                # self.starting_positions[i, 2] = 0.0
                 print(f"Starting position of uav {self.ids[i]}: {self.starting_positions[i]}")
                 self.just_init[i] = False
 
 
     def odom_callback(self, msg, i):
+        print(f"Odom for robot {self.ids[i]}: {msg.pose.pose.position}")
         self.local_odom[i] = msg
 
     def run(self):
@@ -92,6 +94,7 @@ class Supervisor():
                 self.tf_broadcaster.sendTransform(tf_origin)
                 
                 odom = self.local_odom[i]
+                #print(f"Odom for robot {i}: {odom.pose.pose.position}")
                 if odom is not None:
                     # [TF] local origin -> base link
                     tf_odom = TransformStamped()
