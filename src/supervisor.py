@@ -7,11 +7,29 @@ from sensor_msgs.msg import NavSatFix
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import TransformStamped
 from pyproj import Proj
+import tf
+import tf_conversions
+
 
 class Supervisor():
     def __init__(self):
         rospy.init_node("tf_broadcaster")
         self.ids = rospy.get_param("robots_ids", "[0, 1]")
+        self.offset_x = rospy.get_param("~offset_x", 0.0)
+        self.offset_y = rospy.get_param("~offset_y", 0.0)
+        self.offset_z = rospy.get_param("~offset_z", 0.0)
+        self.rotation = rospy.get_param("~rotation", 0.0)
+        self.rotation *= np.pi / 180.0
+        self.R = np.array([
+                [np.cos(self.rotation), -np.sin(self.rotation), 0.0],
+                [np.sin(self.rotation), np.cos(self.rotation),  0.0],
+                [0.0,                   0.0,                    1.0]])
+        T = np.eye(4)
+        T[0:3, 0:3] = self.R
+        T[0:3, 3] = np.array([self.offset_x, self.offset_y, 0.0])
+        self.quat = tf_conversions.transformations.quaternion_from_matrix(T)
+        print("Using offsets: ", self.offset_x, self.offset_y, self.offset_z)
+        print("Rotation: ", self.rotation)
         print("Got IDS:")
         for id in self.ids:
             print(f"{id}, ")
@@ -61,9 +79,9 @@ class Supervisor():
             if self.just_init[i]:
                 x, y = self.proj(msg.longitude, msg.latitude)
                 z = msg.altitude - self.ref_alt
-                self.starting_positions[i, 0] = x
-                self.starting_positions[i, 1] = y
-                self.starting_positions[i, 2] = z
+                self.starting_positions[i, 0] = x + self.offset_x
+                self.starting_positions[i, 1] = y + self.offset_y
+                self.starting_positions[i, 2] = z + self.offset_z
                 # self.starting_positions[i, 2] = 0.0
                 print(f"Starting position of uav {self.ids[i]}: {self.starting_positions[i]}")
                 self.just_init[i] = False
@@ -90,6 +108,11 @@ class Supervisor():
                 tf_origin.transform.translation.x = self.starting_positions[i, 0]
                 tf_origin.transform.translation.y = self.starting_positions[i, 1]
                 tf_origin.transform.translation.z = self.starting_positions[i, 2]
+                # self.quat = tf_conversions.transformations.quaternion_from_euler(0, 0, self.rotation)
+                # tf_origin.transform.rotation.x = self.quat[0]
+                # tf_origin.transform.rotation.y = self.quat[1]
+                # tf_origin.transform.rotation.z = self.quat[2]
+                # tf_origin.transform.rotation.w = self.quat[3]
                 tf_origin.transform.rotation.w = 1
                 self.tf_broadcaster.sendTransform(tf_origin)
                 
@@ -105,7 +128,7 @@ class Supervisor():
                     tf_odom.transform.translation.x = odom.pose.pose.position.x
                     tf_odom.transform.translation.y = odom.pose.pose.position.y
                     tf_odom.transform.translation.z = odom.pose.pose.position.z
-
+    
                     tf_odom.transform.rotation = odom.pose.pose.orientation
 
                     self.tf_broadcaster.sendTransform(tf_odom)
